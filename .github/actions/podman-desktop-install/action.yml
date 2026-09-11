@@ -16,7 +16,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 name: 'podman-desktop-install'
-description: 'Download and install Podman Desktop production binary (Linux & Windows)'
+description: 'Download and install Podman Desktop production binary (Linux, macOS & Windows)'
 
 inputs:
   version:
@@ -28,7 +28,7 @@ inputs:
 
 outputs:
   binary:
-    value: ${{ steps.install-linux.outputs.binary || steps.install-windows.outputs.binary }}
+    value: ${{ steps.install-linux.outputs.binary || steps.install-macos.outputs.binary || steps.install-windows.outputs.binary }}
     description: 'Absolute path to the installed Podman Desktop binary'
   version:
     value: ${{ steps.resolve.outputs.version }}
@@ -82,6 +82,33 @@ runs:
         tar -xzf podman-desktop.tar.gz -C podman-desktop-dir --strip-components=1
 
         BINARY="$(pwd)/podman-desktop-dir/podman-desktop"
+        echo "binary=$BINARY" >> "$GITHUB_OUTPUT"
+        echo "PODMAN_DESKTOP_BINARY=$BINARY" >> "$GITHUB_ENV"
+
+    - name: Install Podman Desktop (macOS)
+      if: runner.os == 'macOS'
+      id: install-macos
+      shell: bash
+      env:
+        PD_VERSION: ${{ steps.resolve.outputs.version }}
+        PD_REPO: ${{ steps.resolve.outputs.repo }}
+      run: |
+        set -euo pipefail
+
+        echo "Downloading Podman Desktop $PD_VERSION for macOS (arm64)"
+        curl -sfL "https://github.com/$PD_REPO/releases/download/v$PD_VERSION/podman-desktop-$PD_VERSION-arm64.dmg" -o podman-desktop.dmg
+
+        MOUNT_DIR="/tmp/podman-desktop-dmg"
+        echo "Mounting DMG at $MOUNT_DIR..."
+        hdiutil attach podman-desktop.dmg -nobrowse -mountpoint "$MOUNT_DIR"
+
+        echo "Installing Podman Desktop to /Applications..."
+        cp -R "$MOUNT_DIR/Podman Desktop.app" /Applications/
+
+        echo "Unmounting DMG..."
+        hdiutil detach "$MOUNT_DIR"
+
+        BINARY="/Applications/Podman Desktop.app/Contents/MacOS/Podman Desktop"
         echo "binary=$BINARY" >> "$GITHUB_OUTPUT"
         echo "PODMAN_DESKTOP_BINARY=$BINARY" >> "$GITHUB_ENV"
 
