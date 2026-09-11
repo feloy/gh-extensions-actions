@@ -92,11 +92,18 @@ runs:
       env:
         PD_VERSION: ${{ steps.resolve.outputs.version }}
         PD_REPO: ${{ steps.resolve.outputs.repo }}
+        RUNNER_ARCH: ${{ runner.arch }}
       run: |
         set -euo pipefail
 
-        echo "Downloading Podman Desktop $PD_VERSION for macOS (arm64)"
-        curl -sfL "https://github.com/$PD_REPO/releases/download/v$PD_VERSION/podman-desktop-$PD_VERSION-arm64.dmg" -o podman-desktop.dmg
+        case "$RUNNER_ARCH" in
+          ARM64) ARCH="arm64" ;;
+          X64)   ARCH="x64"   ;;
+          *)     echo "::error::Unsupported macOS architecture: $RUNNER_ARCH"; exit 1 ;;
+        esac
+
+        echo "Downloading Podman Desktop $PD_VERSION for macOS ($ARCH)"
+        curl -sfL "https://github.com/$PD_REPO/releases/download/v$PD_VERSION/podman-desktop-$PD_VERSION-$ARCH.dmg" -o podman-desktop.dmg
 
         MOUNT_DIR="/tmp/podman-desktop-dmg"
         echo "Mounting DMG at $MOUNT_DIR..."
